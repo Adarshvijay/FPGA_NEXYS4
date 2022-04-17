@@ -1,0 +1,273 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+USE ieee.numeric_std.ALL;
+
+ENTITY sevenseg IS
+    PORT (
+        start : IN STD_LOGIC;
+        stp : IN STD_LOGIC;
+        RST : IN STD_LOGIC;
+        CLK : IN STD_LOGIC;
+        clock_480 : IN STD_LOGIC;
+        clock_timer : IN STD_LOGIC;
+        led1 : out STD_LOGIC ;
+        anode : OUT STD_LOGIC_VECTOR (3 DOWNTO 0);
+        cathode : OUT STD_LOGIC_VECTOR (7 DOWNTO 0));
+END sevenseg;
+
+ARCHITECTURE Behavioral OF sevenseg IS
+
+    TYPE SM IS (initial_s, start_s, user_s, stopped_s, error_s, slow_s);
+    SIGNAL STATE : SM := initial_s;
+    SIGNAL start_counter, stop_counter : STD_LOGIC := '0';
+    SIGNAL counter : INTEGER RANGE 0 TO 20000 := 0;
+    SIGNAL a, b, x, y : INTEGER := 0; --for the 4 leds on the seven-segment display
+    SIGNAL PS, NS : STD_LOGIC_VECTOR (1 DOWNTO 0) := "00"; --present state/next state
+
+BEGIN
+
+    PROCESS (clock_timer)
+    begin
+        if (rising_edge(clock_timer)) then
+            if (RST = '1') then
+                start_counter <= '0';
+                STATE <= initial_s;
+            else
+                case (STATE) is
+                    when initial_s =>
+                        -- Display 'HI'
+                        a <= 10;
+                        b <= 1;
+                        x <= 0;
+                        y <= 0;
+                        led1 <= '0'; -- Turn LED off
+                        if (start = '1') then
+                            -- Turn display OFF
+                            a <= 20;
+                            b <= 20;
+                            x <= 20;
+                            y <= 20;  
+                            STATE <= start_s;
+                        end if;
+
+                    when start_s =>
+                        -- start 6sec delay timer
+                        if (counter = 6000) then
+                            counter <= 0;
+                            a <= 0;
+                            b <= 0;
+                            x <= 0;
+                            y <= 0;
+                            STATE <= user_s;
+                        -- If stopped button is pressed before the wait is finished
+                        elsif (stp = '1') then
+                            STATE  <= error_s;
+                        else
+                            counter <= counter + 1;
+                        end if;
+                    
+                    when user_s =>
+                        -- Turn LED on1
+                        LED1 <= '1';
+                        y <= y + 1; --code to have the stopwatch actually count
+                        IF y = 9 THEN
+                            x <= x + 1;
+                            y <= 0;
+                            IF x = 9 THEN
+                                b <= b + 1;
+                                x <= 0;
+                                IF b = 9 THEN
+                                    a <= a + 1;
+                                    b <= 0;
+                                    IF a = 9 THEN --rolls over when it gets to 99.99
+                                        a <= 0;
+                                        b <= 0;
+                                        x <= 0;
+                                        y <= 0;
+                                    END IF;
+                                END IF;
+                            END IF;
+                        END IF;
+
+                        if (counter = 1000) then
+                            STATE <= slow_s;
+                        -- If stopped button is pressed before the wait is finished
+                        elsif (stp = '1') then
+                            STATE  <= error_s;
+                        else
+                            counter <= counter + 1;
+                        end if;
+
+
+                        -- Check if the stopped button is pressed
+                        if (stp = '1') then 
+                           STATE <= stopped_s;
+                        end if;
+                    
+                    -- This state stopes the counting
+                    when stopped_s =>
+                        if (RST = '1') then
+                            STATE <= initial_s;
+                        end if;
+                    
+                    -- This state is to display 9999
+                    when error_s =>
+                        a <= 9;
+                        b <= 9;
+                        x <= 9;
+                        y <= 9;                    
+
+                        if (RST = '1') then
+                            STATE <= initial_s;
+                        end if;
+                        
+                    when slow_s => 
+                        a <= 1;
+                        b <= 0;
+                        x <= 0;
+                        y <= 0;
+                        if (RST = '1') then
+                            STATE <= initial_s;
+                        end if;
+                        
+                    when others =>
+                    if (RST = '1') then
+                    end if; 
+                end case;
+            end if;
+        end if;
+
+    end PROCESS;
+    
+    PROCESS (CLK)
+    BEGIN
+
+        IF (rising_edge (CLK)) THEN
+            PS <= NS;
+        END IF;
+    END PROCESS;
+
+    led : PROCESS (clock_480) --tells leds when to turn on
+        VARIABLE digit1, digit2 : unsigned (1 DOWNTO 0) := "00";
+    BEGIN
+        IF (rising_edge (clock_480)) THEN
+            CASE (digit1) IS
+                WHEN "00" =>
+                    anode <= "0111";
+                WHEN "01" =>
+                    anode <= "1011";
+                WHEN "10" =>
+                    anode <= "1101";
+                WHEN others =>
+                    anode <= "1110";
+            END CASE;
+
+            CASE (digit2) IS
+                WHEN "00" =>
+                    CASE (a) IS
+                        WHEN 0 =>
+                            cathode <= "00000011";
+                        WHEN 1 =>
+                            cathode <= "10011111";
+                        WHEN 2 =>
+                            cathode <= "00100101";
+                        WHEN 3 =>
+                            cathode <= "00001101";
+                        WHEN 4 =>
+                            cathode <= "10011001";
+                        WHEN 5 =>
+                            cathode <= "01001001";
+                        WHEN 6 =>
+                            cathode <= "01000001";
+                        WHEN 7 =>
+                            cathode <= "00011111";
+                        WHEN 8 =>
+                            cathode <= "00000001";
+                        WHEN 9 =>
+                            cathode <= "00011001";
+                        WHEN 10 =>
+                            cathode <= "10010001"; -- Display H
+                        WHEN OTHERS =>
+                            cathode <= "11111111"; -- turn segments off
+                    END CASE;
+                WHEN "01" =>
+                    CASE (b) IS
+                        WHEN 0 =>
+                            cathode <= "00000010";
+                        WHEN 1 =>
+                            cathode <= "10011110";
+                        WHEN 2 =>
+                            cathode <= "00100100";
+                        WHEN 3 =>
+                            cathode <= "00001100";
+                        WHEN 4 =>
+                            cathode <= "10011000";
+                        WHEN 5 =>
+                            cathode <= "01001000";
+                        WHEN 6 =>
+                            cathode <= "01000000";
+                        WHEN 7 =>
+                            cathode <= "00011110";
+                        WHEN 8 =>
+                            cathode <= "00000000";
+                        WHEN 9 =>
+                            cathode <= "00011000";
+                        WHEN OTHERS =>
+                            cathode <= "11111111";
+                    END CASE;
+                WHEN "10" =>
+                    CASE (x) IS
+                        WHEN 0 =>
+                            cathode <= "00000011";
+                        WHEN 1 =>
+                            cathode <= "10011111";
+                        WHEN 2 =>
+                            cathode <= "00100101";
+                        WHEN 3 =>
+                            cathode <= "00001101";
+                        WHEN 4 =>
+                            cathode <= "10011001";
+                        WHEN 5 =>
+                            cathode <= "01001001";
+                        WHEN 6 =>
+                            cathode <= "01000001";
+                        WHEN 7 =>
+                            cathode <= "00011111";
+                        WHEN 8 =>
+                            cathode <= "00000001";
+                        WHEN 9 =>
+                            cathode <= "00011001";
+                        WHEN OTHERS =>
+                            cathode <= "11111111";
+                    END CASE;
+                WHEN OTHERS =>
+                    CASE (y) IS
+                        WHEN 0 =>
+                            cathode <= "00000011";
+                        WHEN 1 =>
+                            cathode <= "10011111";
+                        WHEN 2 =>
+                            cathode <= "00100101";
+                        WHEN 3 =>
+                            cathode <= "00001101";
+                        WHEN 4 =>
+                            cathode <= "10011001";
+                        WHEN 5 =>
+                            cathode <= "01001001";
+                        WHEN 6 =>
+                            cathode <= "01000001";
+                        WHEN 7 =>
+                            cathode <= "00011111";
+                        WHEN 8 =>
+                            cathode <= "00000001";
+                        WHEN 9 =>
+                            cathode <= "00011001";
+                        WHEN OTHERS =>
+                            cathode <= "11111111";
+                    END CASE;
+            END CASE;
+            digit1 := digit1 + 1;
+            digit2 := digit2 + 1;
+        END IF;
+    END PROCESS;
+END Behavioral;

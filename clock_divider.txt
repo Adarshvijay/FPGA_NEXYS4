@@ -1,0 +1,42 @@
+LIBRARY IEEE;
+USE IEEE . STD_LOGIC_1164 . ALL;
+USE IEEE . NUMERIC_STD . ALL;
+
+ENTITY clocks IS
+    PORT (
+        CLK : IN STD_LOGIC;
+        clock_480 : OUT STD_LOGIC;
+        clock_timer : OUT STD_LOGIC);
+END clocks;
+ARCHITECTURE Behavioral OF clocks IS
+    SIGNAL clk1, clk2 : STD_LOGIC;
+BEGIN
+
+    clk_480hz : PROCESS (CLK) --clock that runs at 480Hz to keep all the leds on
+        VARIABLE count1 : unsigned (17 DOWNTO 0) := "000000000000000000";
+    BEGIN
+        IF (rising_edge (CLK)) THEN
+            IF count1 = "110010110111001101" THEN --counting to 208333
+                clk1 <= NOT clk1;
+                count1 := "000000000000000000";
+            END IF;
+            count1 := count1 + 1;
+        END IF;
+    END PROCESS;
+
+    clk_timer : PROCESS (CLK) --clock that runs at 1000Hz for timer
+        VARIABLE count2 : unsigned (17 DOWNTO 0) := "000000000000000000";
+    BEGIN
+        IF (rising_edge (CLK)) THEN
+            IF count2 = "1100001101010000" THEN
+                clk2 <= NOT clk2;
+                count2 := "000000000000000000";
+            END IF;
+            count2 := count2 + 1;
+        END IF;
+    END PROCESS;
+
+    clock_480 <= clk1; --setting this clock to a signal to make input for display module
+    clock_timer <= clk2;
+
+END Behavioral;

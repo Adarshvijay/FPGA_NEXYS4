@@ -1,0 +1,49 @@
+LIBRARY IEEE;
+USE IEEE . STD_LOGIC_1164 . ALL;
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+--use IEEE.NUMERIC_STD.ALL;
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+ENTITY final IS
+    PORT (
+        start : IN STD_LOGIC;
+        stp : IN STD_LOGIC;
+        CLK : IN STD_LOGIC;
+        RST : IN STD_LOGIC;
+        led1 : OUT STD_LOGIC;
+        anode : OUT STD_LOGIC_VECTOR (3 DOWNTO 0);
+        cathode : OUT STD_LOGIC_VECTOR (7 DOWNTO 0));
+END final;
+
+ARCHITECTURE Behavioral OF final IS
+    COMPONENT clocks
+        PORT (
+            CLK : IN STD_LOGIC;
+            clock_480 : OUT STD_LOGIC;
+            clock_timer : OUT STD_LOGIC);
+    END COMPONENT;
+
+    COMPONENT sevenseg
+        PORT (
+            start : IN STD_LOGIC;
+            stp : IN STD_LOGIC;
+            RST : IN STD_LOGIC;
+            CLK : IN STD_LOGIC;
+            clock_480 : IN STD_LOGIC;
+            clock_timer : IN STD_LOGIC;
+            led1 : OUT STD_LOGIC;
+            anode : OUT STD_LOGIC_VECTOR (3 DOWNTO 0);
+            cathode : OUT STD_LOGIC_VECTOR (7 DOWNTO 0));
+    END COMPONENT;
+
+    SIGNAL clk1, clk2 : STD_LOGIC;
+BEGIN
+    comp0 : clocks PORT MAP(CLK => CLK, clock_480 => clk1, clock_timer => clk2);
+    comp1 : sevenseg PORT MAP(
+        CLK => CLK, clock_480 => clk1, clock_timer => clk2,
+        start => start, stp => stp, RST => RST, led1 => led1, anode => anode, cathode => cathode);
+
+END Behavioral;
